@@ -21,7 +21,11 @@ const Register: React.FC = () => {
       // Automatically navigate to login on success
       navigate('/login');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create account');
+      if (!err.response) {
+        setError('Network error: Unable to reach backend API. Please verify network connection.');
+      } else {
+        setError(err.response?.data?.detail || 'Failed to create account');
+      }
     }
   };
 

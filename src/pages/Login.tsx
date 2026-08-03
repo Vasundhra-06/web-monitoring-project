@@ -22,8 +22,12 @@ const Login: React.FC = () => {
       
       localStorage.setItem('auth_token', res.data.access_token);
       navigate('/');
-    } catch (err) {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      if (!err.response) {
+        setError('Network error: Unable to reach authentication server. Please verify API configuration.');
+      } else {
+        setError(err.response?.data?.detail || 'Invalid email or password');
+      }
     }
   };
 
