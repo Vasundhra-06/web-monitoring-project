@@ -90,12 +90,7 @@ const SettingsPage: React.FC = () => {
               <span>Changes saved successfully!</span>
             </div>
           )}
-          {saveError && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-              <AlertCircle size={16} />
-              <span>{saveError}</span>
-            </div>
-          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-400 mb-1">Full Name</label>
             <input 
