@@ -98,7 +98,7 @@ const Register: React.FC = () => {
             </div>
           </div>
 
-          <button type="submit" disabled={loading} className="btn bg-emerald-600 hover:bg-emerald-700 text-white w-full justify-center py-3 mt-4 transition-colors flex items-center gap-2">
+          <button type="submit" disabled={loading} className="btn btn-success w-full justify-center py-3 mt-4 text-white font-semibold shadow-lg shadow-emerald-900/30 hover:shadow-emerald-900/50 transition-all flex items-center gap-2">
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
