@@ -74,7 +74,9 @@ const saveNotifications = (notifications: Notification[]) => {
 const loadNotifications = (): Notification[] => {
   try {
     const data = localStorage.getItem('app_notifications');
-    return data ? JSON.parse(data) : [];
+    const list: Notification[] = data ? JSON.parse(data) : [];
+    // Filter out unwanted administrative source add/delete notifications
+    return list.filter(n => n.title !== 'New Source Added' && n.title !== 'Source Removed');
   } catch { return []; }
 };
 
@@ -191,19 +193,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ sources: updatedSources });
     saveSources(updatedSources);
 
-    // Generate a notification for the new source
-    const newNotification: Notification = {
-      id: 'notif_' + Date.now(),
-      title: 'New Source Added',
-      message: `"${source.name}" (${source.type}) is now being monitored.`,
-      priority: 'Medium',
-      timestamp: new Date().toISOString(),
-      read: false
-    };
-    const updatedNotifications = [newNotification, ...get().notifications];
-    set({ notifications: updatedNotifications });
-    saveNotifications(updatedNotifications);
-
     try {
       await apiClient.post('/sources', source);
     } catch {
@@ -226,25 +215,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteSource: async (id) => {
-    const sourceToDelete = get().sources.find(s => s.id === id);
     const updatedSources = get().sources.filter(s => s.id !== id);
     set({ sources: updatedSources });
     saveSources(updatedSources);
-
-    // Generate a notification for the deleted source
-    if (sourceToDelete) {
-      const newNotification: Notification = {
-        id: 'notif_' + Date.now(),
-        title: 'Source Removed',
-        message: `"${sourceToDelete.name}" has been removed from monitoring.`,
-        priority: 'Low',
-        timestamp: new Date().toISOString(),
-        read: false
-      };
-      const updatedNotifications = [newNotification, ...get().notifications];
-      set({ notifications: updatedNotifications });
-      saveNotifications(updatedNotifications);
-    }
 
     try {
       await apiClient.delete(`/sources/${id}`);
