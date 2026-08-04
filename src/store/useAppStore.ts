@@ -55,6 +55,40 @@ interface AppState {
   clearNotifications: () => Promise<void>;
 }
 
+// Helper functions for localStorage persistence
+const saveSources = (sources: Source[]) => {
+  localStorage.setItem('app_sources', JSON.stringify(sources));
+};
+
+const loadSources = (): Source[] => {
+  try {
+    const data = localStorage.getItem('app_sources');
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+};
+
+const saveNotifications = (notifications: Notification[]) => {
+  localStorage.setItem('app_notifications', JSON.stringify(notifications));
+};
+
+const loadNotifications = (): Notification[] => {
+  try {
+    const data = localStorage.getItem('app_notifications');
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+};
+
+const saveOpportunities = (opportunities: Opportunity[]) => {
+  localStorage.setItem('app_opportunities', JSON.stringify(opportunities));
+};
+
+const loadOpportunities = (): Opportunity[] => {
+  try {
+    const data = localStorage.getItem('app_opportunities');
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
   opportunities: [],
   sources: [],
@@ -67,8 +101,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const res = await apiClient.get('/auth/me');
       set({ currentUser: res.data });
-    } catch (error) {
-      console.warn("Backend API /auth/me unreachable, loading saved client user profile:", error);
+    } catch {
+      console.warn("Backend API /auth/me unreachable, loading saved client user profile");
       const savedUserStr = localStorage.getItem('user_profile');
       if (savedUserStr) {
         try {
@@ -98,84 +132,147 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentUser: userRes.data,
         savedCount: oppRes.data.filter((o: Opportunity) => o.saved).length
       });
-    } catch (error) {
-      console.error("Failed to fetch data:", error);
+    } catch {
+      console.warn("Backend API unreachable, loading data from localStorage");
+      const localSources = loadSources();
+      const localNotifications = loadNotifications();
+      const localOpportunities = loadOpportunities();
+      const savedUserStr = localStorage.getItem('user_profile');
+      let user = null;
+      if (savedUserStr) {
+        try { user = JSON.parse(savedUserStr); } catch { /* ignore */ }
+      }
+      set({
+        sources: localSources,
+        notifications: localNotifications,
+        opportunities: localOpportunities,
+        currentUser: user || { full_name: 'Vasundhra', email: 'vasundhrathanga20@gmail.com', role: 'user' },
+        savedCount: localOpportunities.filter(o => o.saved).length
+      });
     } finally {
       set({ loading: false });
     }
   },
 
   toggleSaveOpportunity: async (id) => {
+    const updated = get().opportunities.map(o => 
+      o.id === id ? { ...o, saved: !o.saved } : o
+    );
+    set({
+      opportunities: updated,
+      savedCount: updated.filter(o => o.saved).length
+    });
+    saveOpportunities(updated);
     try {
       await apiClient.put(`/opportunities/${id}/save`);
-      const updated = get().opportunities.map(o => 
-        o.id === id ? { ...o, saved: !o.saved } : o
-      );
-      set({
-        opportunities: updated,
-        savedCount: updated.filter(o => o.saved).length
-      });
-    } catch (error) {
-      console.error("Failed to toggle save:", error);
+    } catch {
+      console.warn("Backend API unreachable, saved locally");
     }
   },
 
-  markOpportunityRead: (id) => set((state) => ({
-    opportunities: state.opportunities.map(o => o.id === id ? { ...o, read: true } : o)
-  })),
+  markOpportunityRead: (id) => {
+    const updated = get().opportunities.map(o => o.id === id ? { ...o, read: true } : o);
+    set({ opportunities: updated });
+    saveOpportunities(updated);
+  },
 
   addSource: async (source) => {
+    const newSource: Source = {
+      id: 'src_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      name: source.name,
+      type: source.type,
+      url: source.url,
+      status: 'Active',
+      last_scan: new Date().toISOString(),
+      updates_today: 0
+    };
+
+    const updatedSources = [...get().sources, newSource];
+    set({ sources: updatedSources });
+    saveSources(updatedSources);
+
+    // Generate a notification for the new source
+    const newNotification: Notification = {
+      id: 'notif_' + Date.now(),
+      title: 'New Source Added',
+      message: `"${source.name}" (${source.type}) is now being monitored.`,
+      priority: 'Medium',
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+    const updatedNotifications = [newNotification, ...get().notifications];
+    set({ notifications: updatedNotifications });
+    saveNotifications(updatedNotifications);
+
     try {
-      const res = await apiClient.post('/sources', source);
-      set((state) => ({
-        sources: [...state.sources, res.data]
-      }));
-    } catch (error) {
-      console.error("Failed to add source:", error);
+      await apiClient.post('/sources', source);
+    } catch {
+      console.warn("Backend API unreachable, source saved locally");
     }
   },
 
   toggleSourceStatus: async (id) => {
+    const updatedSources = get().sources.map(s => 
+      s.id === id ? { ...s, status: (s.status === 'Active' ? 'Paused' : 'Active') as 'Active' | 'Paused' } : s
+    );
+    set({ sources: updatedSources });
+    saveSources(updatedSources);
+
     try {
       await apiClient.put(`/sources/${id}/toggle`);
-      set((state) => ({
-        sources: state.sources.map(s => 
-          s.id === id ? { ...s, status: s.status === 'Active' ? 'Paused' : 'Active' } : s
-        )
-      }));
-    } catch (error) {
-      console.error("Failed to toggle source:", error);
+    } catch {
+      console.warn("Backend API unreachable, status toggled locally");
     }
   },
 
   deleteSource: async (id) => {
+    const sourceToDelete = get().sources.find(s => s.id === id);
+    const updatedSources = get().sources.filter(s => s.id !== id);
+    set({ sources: updatedSources });
+    saveSources(updatedSources);
+
+    // Generate a notification for the deleted source
+    if (sourceToDelete) {
+      const newNotification: Notification = {
+        id: 'notif_' + Date.now(),
+        title: 'Source Removed',
+        message: `"${sourceToDelete.name}" has been removed from monitoring.`,
+        priority: 'Low',
+        timestamp: new Date().toISOString(),
+        read: false
+      };
+      const updatedNotifications = [newNotification, ...get().notifications];
+      set({ notifications: updatedNotifications });
+      saveNotifications(updatedNotifications);
+    }
+
     try {
       await apiClient.delete(`/sources/${id}`);
-      set((state) => ({
-        sources: state.sources.filter(s => s.id !== id)
-      }));
-    } catch (error) {
-      console.error("Failed to delete source:", error);
+    } catch {
+      console.warn("Backend API unreachable, source deleted locally");
     }
   },
 
   markNotificationRead: async (id) => {
+    const updatedNotifications = get().notifications.map(n => n.id === id ? { ...n, read: true } : n);
+    set({ notifications: updatedNotifications });
+    saveNotifications(updatedNotifications);
+
     try {
       await apiClient.put(`/notifications/${id}/read`);
-      set((state) => ({
-        notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n)
-      }));
-    } catch (error) {
-      console.error("Failed to mark notification read:", error);
+    } catch {
+      console.warn("Backend API unreachable, notification marked locally");
     }
   },
 
   clearNotifications: async () => {
+    set({ notifications: [] });
+    saveNotifications([]);
+
     try {
       await apiClient.delete('/notifications/clear');
-      set({ notifications: [] });
-    } catch (error) {
-      console.error("Failed to clear notifications:", error);
+    } catch {
+      console.warn("Backend API unreachable, notifications cleared locally");
     }
   }
 }));
