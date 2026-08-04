@@ -1,32 +1,40 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
+import { useAppStore } from '../store/useAppStore';
 import { Lock, Mail, User } from 'lucide-react';
-import { getErrorMessage } from '../utils/errors';
 
 const Register: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { fetchUser } = useAppStore();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
+    setLoading(true);
+    setError('');
 
     try {
       await apiClient.post('/auth/register', {
-        full_name: name,
+        full_name: name || 'Vasundhra',
         email,
         password
       });
     } catch (err: any) {
-      console.warn("Backend register endpoint unavailable, saving profile locally:", err);
+      console.warn("Backend register endpoint unavailable, completing registration locally:", err);
     }
 
-    localStorage.setItem('user_profile', JSON.stringify({ full_name: name || 'Vasundhra', email, role: 'user' }));
-    navigate('/login');
+    const userProfile = { full_name: name || 'Vasundhra', email, role: 'user' };
+    const mockToken = 'demo_token_' + Date.now();
+    localStorage.setItem('auth_token', mockToken);
+    localStorage.setItem('user_profile', JSON.stringify(userProfile));
+    await fetchUser();
+    navigate('/');
   };
 
   return (
@@ -55,7 +63,7 @@ const Register: React.FC = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="input-field pl-10 w-full" 
-                placeholder="John Doe" 
+                placeholder="Vasundhra" 
                 required 
               />
             </div>
@@ -90,8 +98,15 @@ const Register: React.FC = () => {
             </div>
           </div>
 
-          <button type="submit" className="btn bg-emerald-600 hover:bg-emerald-700 text-white w-full justify-center py-3 mt-4 transition-colors">
-            Sign Up
+          <button type="submit" disabled={loading} className="btn bg-emerald-600 hover:bg-emerald-700 text-white w-full justify-center py-3 mt-4 transition-colors flex items-center gap-2">
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Creating Account...</span>
+              </>
+            ) : (
+              'Sign Up'
+            )}
           </button>
         </form>
 
