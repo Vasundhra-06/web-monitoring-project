@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { User, Settings as SettingsIcon, Database, Bell, Shield, Check, AlertCircle } from 'lucide-react';
+import { User, Settings as SettingsIcon, Database, Bell, Shield, Check } from 'lucide-react';
 import { apiClient } from '../api/client';
 
 const SettingsPage: React.FC = () => {
@@ -8,7 +8,7 @@ const SettingsPage: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [saveError, setSaveError] = useState('');
+
 
   // Notification states
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -28,7 +28,7 @@ const SettingsPage: React.FC = () => {
   const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveSuccess(false);
-    setSaveError('');
+
 
     const updatedUser = {
       full_name: name,
