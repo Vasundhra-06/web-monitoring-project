@@ -60,11 +60,7 @@ const Login: React.FC = () => {
           <p className="text-slate-400">Sign in to Universal AI Watcher</p>
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
-            {error}
-          </div>
-        )}
+
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
