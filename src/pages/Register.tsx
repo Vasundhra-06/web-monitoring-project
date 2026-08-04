@@ -8,7 +8,7 @@ const Register: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { fetchUser } = useAppStore();
@@ -17,7 +17,7 @@ const Register: React.FC = () => {
     e.preventDefault();
     if (!email || !password) return;
     setLoading(true);
-    setError('');
+
 
     try {
       await apiClient.post('/auth/register', {

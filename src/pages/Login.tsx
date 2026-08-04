@@ -7,7 +7,7 @@ import { Lock, Mail } from 'lucide-react';
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { fetchUser } = useAppStore();
@@ -16,7 +16,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     if (!email || !password) return;
     setLoading(true);
-    setError('');
+
 
     try {
       const params = new URLSearchParams();
