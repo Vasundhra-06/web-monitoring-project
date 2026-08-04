@@ -68,7 +68,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await apiClient.get('/auth/me');
       set({ currentUser: res.data });
     } catch (error) {
-      console.error("Failed to fetch user:", error);
+      console.warn("Backend API /auth/me unreachable, loading saved client user profile:", error);
+      const savedUserStr = localStorage.getItem('user_profile');
+      if (savedUserStr) {
+        try {
+          set({ currentUser: JSON.parse(savedUserStr) });
+        } catch {
+          set({ currentUser: { full_name: 'Vasundhra', email: 'vasundhrathanga20@gmail.com', role: 'user' } });
+        }
+      } else {
+        set({ currentUser: { full_name: 'Vasundhra', email: 'vasundhrathanga20@gmail.com', role: 'user' } });
+      }
     }
   },
 
