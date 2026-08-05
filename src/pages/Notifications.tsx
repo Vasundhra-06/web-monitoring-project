@@ -1,69 +1,96 @@
 import React from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Bell, Check, Info, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Bell, Check, Trash2, Zap, CheckCircle2 } from 'lucide-react';
 
 const Notifications: React.FC = () => {
-  const { notifications, markNotificationRead } = useAppStore();
+  const { notifications, markNotificationRead, clearNotifications } = useAppStore();
 
-  const getIcon = (priority: string) => {
+  // Filter out administrative notifications so only real target alerts show
+  const filteredNotifications = notifications.filter(n => n.title !== 'New Source Added' && n.title !== 'Source Removed');
+  const unreadCount = filteredNotifications.filter(n => !n.read).length;
+
+  const getPriorityBadge = (priority: string) => {
     switch (priority) {
-      case 'High': return <ShieldAlert size={20} className="text-red-500" />;
-      case 'Warning': return <AlertTriangle size={20} className="text-amber-500" />;
-      default: return <Info size={20} className="text-blue-500" />;
+      case 'High': return <span className="badge badge-danger">High Priority Alert</span>;
+      case 'Medium': return <span className="badge badge-warning">Medium Alert</span>;
+      default: return <span className="badge badge-success">Info</span>;
     }
   };
 
   return (
-    <div className="animate-fade-in max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-500">
-          <Bell size={24} />
-        </div>
+    <div className="animate-fade-in space-y-6 max-w-4xl mx-auto pb-10">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-h2 font-bold mb-1">Notifications</h1>
-          <p className="text-muted">Stay updated with new alerts and system statuses.</p>
+          <h1 className="text-h2 font-extrabold text-white flex items-center gap-2">
+            <Bell className="text-pink-400" size={26} />
+            <span>Opportunity Notifications</span>
+          </h1>
+          <p className="text-slate-400 text-xs mt-1">Real-time alerts and scraper matches from your monitored sites</p>
         </div>
+
+        {filteredNotifications.length > 0 && (
+          <button 
+            onClick={clearNotifications}
+            className="btn btn-secondary text-xs text-rose-400 hover:bg-rose-500/10 border-rose-500/30 whitespace-nowrap"
+          >
+            <Trash2 size={16} />
+            <span>Clear All Notifications</span>
+          </button>
+        )}
       </div>
 
-      <div className="glass-card overflow-hidden">
-        {notifications.length > 0 ? (
-          <div className="divide-y divide-slate-700/50">
-            {notifications.map(notif => (
-              <div 
-                key={notif.id} 
-                className={`p-4 md:p-6 flex gap-4 transition-colors ${notif.read ? 'bg-transparent opacity-75' : 'bg-slate-800/30'}`}
-              >
-                <div className="flex-shrink-0 mt-1">
-                  {getIcon(notif.priority)}
-                </div>
-                <div className="flex-1">
-                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-1 md:gap-4 mb-2">
-                    <h3 className={`font-bold text-lg ${notif.read ? 'text-slate-300' : 'text-slate-100'}`}>
-                      {notif.title}
-                    </h3>
-                    <span className="text-xs text-slate-500 whitespace-nowrap">
-                      {new Date(notif.timestamp).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-slate-400 mb-4">{notif.message}</p>
-                  
+      {/* Unread Alert Indicator */}
+      {unreadCount > 0 && (
+        <div className="glass-panel p-3 bg-pink-500/10 border-pink-500/30 text-pink-400 text-xs flex items-center justify-between font-semibold">
+          <div className="flex items-center gap-2">
+            <Zap size={16} className="text-pink-400 animate-bounce" />
+            <span>You have {unreadCount} unread opportunity alert{unreadCount > 1 ? 's' : ''}.</span>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications List (Sleek Glass Panels) */}
+      <div className="space-y-3">
+        {filteredNotifications.length > 0 ? (
+          filteredNotifications.map(notif => (
+            <div 
+              key={notif.id} 
+              className={`glass-panel p-5 border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                !notif.read ? 'border-teal-500/40 bg-slate-900/90 shadow-lg shadow-teal-500/5' : 'border-white/10 opacity-75'
+              }`}
+            >
+              <div className="space-y-1.5 min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  {getPriorityBadge(notif.priority)}
+                  <span className="text-[11px] text-slate-400">
+                    {new Date(notif.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                  </span>
                   {!notif.read && (
-                    <button 
-                      onClick={() => markNotificationRead(notif.id)}
-                      className="btn btn-secondary text-sm py-1.5 px-3"
-                    >
-                      <Check size={14} />
-                      Mark as read
-                    </button>
+                    <span className="w-2 h-2 rounded-full bg-pink-500 animate-ping" />
                   )}
                 </div>
+
+                <h3 className="text-sm font-bold text-white">{notif.title}</h3>
+                <p className="text-xs text-slate-300 leading-relaxed">{notif.message}</p>
               </div>
-            ))}
-          </div>
+
+              {!notif.read && (
+                <button 
+                  onClick={() => markNotificationRead(notif.id)}
+                  className="btn btn-secondary text-xs py-1.5 px-3 hover:border-teal-400 hover:text-teal-400 shrink-0 self-end sm:self-center"
+                >
+                  <Check size={14} />
+                  <span>Mark as Read</span>
+                </button>
+              )}
+            </div>
+          ))
         ) : (
-          <div className="p-12 text-center text-slate-500">
-            <Bell size={48} className="mx-auto text-slate-600 mb-4 opacity-50" />
-            <p>You have no notifications at this time.</p>
+          <div className="glass-card p-12 text-center space-y-3">
+            <CheckCircle2 size={44} className="mx-auto text-teal-400" />
+            <h3 className="text-base font-bold text-white">All Caught Up!</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">No pending opportunity alerts in your notification feed.</p>
           </div>
         )}
       </div>

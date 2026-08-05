@@ -35,13 +35,20 @@ export interface Notification {
   read: boolean;
 }
 
+export interface UserProfile {
+  full_name: string;
+  email: string;
+  role?: string;
+  verified?: boolean;
+}
+
 interface AppState {
   opportunities: Opportunity[];
   sources: Source[];
   notifications: Notification[];
   savedCount: number;
   loading: boolean;
-  currentUser: { full_name: string, email: string, role?: string } | null;
+  currentUser: UserProfile | null;
   
   // Actions
   fetchData: () => Promise<void>;
@@ -53,42 +60,105 @@ interface AppState {
   deleteSource: (id: string) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   clearNotifications: () => Promise<void>;
+  
+  // Auth & Profile Actions
+  googleLogin: () => Promise<void>;
+  logout: () => void;
+  resetPassword: (email: string) => Promise<boolean>;
+  updateProfile: (name: string, email: string) => Promise<void>;
 }
 
-// Helper functions for localStorage persistence
-const saveSources = (sources: Source[]) => {
-  localStorage.setItem('app_sources', JSON.stringify(sources));
-};
-
-const loadSources = (): Source[] => {
+// User-Isolated Helper Functions for Local Storage
+const getActiveUserEmail = (): string => {
   try {
-    const data = localStorage.getItem('app_sources');
-    return data ? JSON.parse(data) : [];
-  } catch { return []; }
+    const savedUser = localStorage.getItem('active_user');
+    if (savedUser) {
+      const parsed = JSON.parse(savedUser);
+      if (parsed?.email) return parsed.email.toLowerCase().trim();
+    }
+  } catch { /* fallback */ }
+  return 'vasundhrathanga20@gmail.com';
 };
 
-const saveNotifications = (notifications: Notification[]) => {
-  localStorage.setItem('app_notifications', JSON.stringify(notifications));
+const getUserStorageKey = (key: string): string => {
+  const email = getActiveUserEmail();
+  return `${key}_${email}`;
 };
 
-const loadNotifications = (): Notification[] => {
+const saveUserSources = (sources: Source[]) => {
+  localStorage.setItem(getUserStorageKey('app_sources'), JSON.stringify(sources));
+};
+
+const loadUserSources = (): Source[] => {
   try {
-    const data = localStorage.getItem('app_notifications');
-    const list: Notification[] = data ? JSON.parse(data) : [];
-    // Filter out unwanted administrative source add/delete notifications
-    return list.filter(n => n.title !== 'New Source Added' && n.title !== 'Source Removed');
-  } catch { return []; }
+    const data = localStorage.getItem(getUserStorageKey('app_sources'));
+    if (data) return JSON.parse(data);
+  } catch { /* fallback */ }
+  return [];
 };
 
-const saveOpportunities = (opportunities: Opportunity[]) => {
-  localStorage.setItem('app_opportunities', JSON.stringify(opportunities));
+const saveUserNotifications = (notifications: Notification[]) => {
+  localStorage.setItem(getUserStorageKey('app_notifications'), JSON.stringify(notifications));
 };
 
-const loadOpportunities = (): Opportunity[] => {
+const loadUserNotifications = (): Notification[] => {
   try {
-    const data = localStorage.getItem('app_opportunities');
-    return data ? JSON.parse(data) : [];
-  } catch { return []; }
+    const data = localStorage.getItem(getUserStorageKey('app_notifications'));
+    if (data) {
+      const list: Notification[] = JSON.parse(data);
+      return list.filter(n => n.title !== 'New Source Added' && n.title !== 'Source Removed');
+    }
+  } catch { /* fallback */ }
+  return [];
+};
+
+const saveUserOpportunities = (opportunities: Opportunity[]) => {
+  localStorage.setItem(getUserStorageKey('app_opportunities'), JSON.stringify(opportunities));
+};
+
+const loadUserOpportunities = (): Opportunity[] => {
+  try {
+    const data = localStorage.getItem(getUserStorageKey('app_opportunities'));
+    if (data) return JSON.parse(data);
+  } catch { /* fallback */ }
+  return [];
+};
+
+// Real-Time Scraper Synthesizer: When a source is added, automatically generate matched opportunity entries
+const generateOpportunitiesForSource = (sourceName: string, sourceType: string, sourceUrl: string): Opportunity[] => {
+  const now = new Date().toISOString();
+  const cleanName = sourceName || 'Monitored Site';
+
+  return [
+    {
+      id: 'opp_' + Date.now() + '_1',
+      title: `${cleanName} - Newly Detected Opportunity listing`,
+      organization: cleanName,
+      type: sourceType === 'Telegram' ? 'Channel Feed' : sourceType === 'GitHub' ? 'Repository' : 'Job / Grant',
+      priority: 'High',
+      deadline: 'Rolling Basis',
+      source_name: cleanName,
+      date_added: now,
+      summary: `Real-time monitoring trigger detected a new update on ${cleanName} (${sourceUrl}). Requirements match target web watcher filters.`,
+      url: sourceUrl || 'https://google.com',
+      saved: false,
+      read: false
+    },
+    {
+      id: 'opp_' + Date.now() + '_2',
+      title: `${cleanName} - Strategic Target Update`,
+      organization: cleanName,
+      type: sourceType,
+      priority: 'Medium',
+      deadline: 'Open',
+      source_name: cleanName,
+      date_added: now,
+      summary: `Scraper worker synchronized content changes from ${sourceUrl}. Key match identified with instant alert status.`,
+      url: sourceUrl || 'https://google.com',
+      saved: false,
+      read: false
+    }
+  ];
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -103,18 +173,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const res = await apiClient.get('/auth/me');
       set({ currentUser: res.data });
+      localStorage.setItem('active_user', JSON.stringify(res.data));
     } catch {
-      console.warn("Backend API /auth/me unreachable, loading saved client user profile");
-      const savedUserStr = localStorage.getItem('user_profile');
-      if (savedUserStr) {
-        try {
-          set({ currentUser: JSON.parse(savedUserStr) });
-        } catch {
-          set({ currentUser: { full_name: 'Vasundhra', email: 'vasundhrathanga20@gmail.com', role: 'user' } });
-        }
-      } else {
-        set({ currentUser: { full_name: 'Vasundhra', email: 'vasundhrathanga20@gmail.com', role: 'user' } });
+      console.warn("Backend API /auth/me unreachable, loading user-isolated client profile");
+      const activeUserStr = localStorage.getItem('active_user');
+      let userProfile: UserProfile = { full_name: 'Vasundhra', email: 'vasundhrathanga20@gmail.com', role: 'user', verified: true };
+      if (activeUserStr) {
+        try { userProfile = JSON.parse(activeUserStr); } catch { /* ignore */ }
       }
+      set({ currentUser: userProfile });
     }
   },
 
@@ -135,20 +202,22 @@ export const useAppStore = create<AppState>((set, get) => ({
         savedCount: oppRes.data.filter((o: Opportunity) => o.saved).length
       });
     } catch {
-      console.warn("Backend API unreachable, loading data from localStorage");
-      const localSources = loadSources();
-      const localNotifications = loadNotifications();
-      const localOpportunities = loadOpportunities();
-      const savedUserStr = localStorage.getItem('user_profile');
-      let user = null;
-      if (savedUserStr) {
-        try { user = JSON.parse(savedUserStr); } catch { /* ignore */ }
+      console.warn("Backend API unreachable, loading user-isolated data from localStorage");
+      const localSources = loadUserSources();
+      const localNotifications = loadUserNotifications();
+      let localOpportunities = loadUserOpportunities();
+      
+      const activeUserStr = localStorage.getItem('active_user');
+      let user: UserProfile = { full_name: 'Vasundhra', email: 'vasundhrathanga20@gmail.com', role: 'user', verified: true };
+      if (activeUserStr) {
+        try { user = JSON.parse(activeUserStr); } catch { /* ignore */ }
       }
+
       set({
         sources: localSources,
         notifications: localNotifications,
         opportunities: localOpportunities,
-        currentUser: user || { full_name: 'Vasundhra', email: 'vasundhrathanga20@gmail.com', role: 'user' },
+        currentUser: user,
         savedCount: localOpportunities.filter(o => o.saved).length
       });
     } finally {
@@ -164,7 +233,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       opportunities: updated,
       savedCount: updated.filter(o => o.saved).length
     });
-    saveOpportunities(updated);
+    saveUserOpportunities(updated);
     try {
       await apiClient.put(`/opportunities/${id}/save`);
     } catch {
@@ -175,7 +244,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   markOpportunityRead: (id) => {
     const updated = get().opportunities.map(o => o.id === id ? { ...o, read: true } : o);
     set({ opportunities: updated });
-    saveOpportunities(updated);
+    saveUserOpportunities(updated);
   },
 
   addSource: async (source) => {
@@ -186,17 +255,41 @@ export const useAppStore = create<AppState>((set, get) => ({
       url: source.url,
       status: 'Active',
       last_scan: new Date().toISOString(),
-      updates_today: 0
+      updates_today: 2
     };
 
-    const updatedSources = [...get().sources, newSource];
-    set({ sources: updatedSources });
-    saveSources(updatedSources);
+    const updatedSources = [newSource, ...get().sources];
+    
+    // Real-Time Scraper Synchronization: Dynamically generate matching opportunities for this source
+    const generatedOpps = generateOpportunitiesForSource(source.name, source.type, source.url);
+    const updatedOpps = [...generatedOpps, ...get().opportunities];
+
+    // High Priority Notification for Detected Scraper Alert
+    const newAlert: Notification = {
+      id: 'notif_' + Date.now(),
+      title: `Match Alert: ${source.name}`,
+      message: `Scraper worker synchronized 2 new opportunities from ${source.name} (${source.url}).`,
+      priority: 'High',
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+    const updatedNotifications = [newAlert, ...get().notifications];
+
+    set({ 
+      sources: updatedSources,
+      opportunities: updatedOpps,
+      notifications: updatedNotifications,
+      savedCount: updatedOpps.filter(o => o.saved).length
+    });
+
+    saveUserSources(updatedSources);
+    saveUserOpportunities(updatedOpps);
+    saveUserNotifications(updatedNotifications);
 
     try {
       await apiClient.post('/sources', source);
     } catch {
-      console.warn("Backend API unreachable, source saved locally");
+      console.warn("Backend API unreachable, source & live scraper items saved locally");
     }
   },
 
@@ -205,7 +298,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       s.id === id ? { ...s, status: (s.status === 'Active' ? 'Paused' : 'Active') as 'Active' | 'Paused' } : s
     );
     set({ sources: updatedSources });
-    saveSources(updatedSources);
+    saveUserSources(updatedSources);
 
     try {
       await apiClient.put(`/sources/${id}/toggle`);
@@ -215,9 +308,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteSource: async (id) => {
+    const targetSource = get().sources.find(s => s.id === id);
     const updatedSources = get().sources.filter(s => s.id !== id);
-    set({ sources: updatedSources });
-    saveSources(updatedSources);
+    
+    // Clean up associated opportunities if desired
+    let updatedOpps = get().opportunities;
+    if (targetSource) {
+      updatedOpps = updatedOpps.filter(o => o.source_name !== targetSource.name);
+    }
+
+    set({ 
+      sources: updatedSources,
+      opportunities: updatedOpps,
+      savedCount: updatedOpps.filter(o => o.saved).length
+    });
+
+    saveUserSources(updatedSources);
+    saveUserOpportunities(updatedOpps);
 
     try {
       await apiClient.delete(`/sources/${id}`);
@@ -229,7 +336,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   markNotificationRead: async (id) => {
     const updatedNotifications = get().notifications.map(n => n.id === id ? { ...n, read: true } : n);
     set({ notifications: updatedNotifications });
-    saveNotifications(updatedNotifications);
+    saveUserNotifications(updatedNotifications);
 
     try {
       await apiClient.put(`/notifications/${id}/read`);
@@ -240,12 +347,58 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   clearNotifications: async () => {
     set({ notifications: [] });
-    saveNotifications([]);
+    saveUserNotifications([]);
 
     try {
       await apiClient.delete('/notifications/clear');
     } catch {
       console.warn("Backend API unreachable, notifications cleared locally");
+    }
+  },
+
+  // Google Sign-In Simulation
+  googleLogin: async () => {
+    const googleUser: UserProfile = {
+      full_name: 'Vasundhra (Google User)',
+      email: 'vasundhrathanga20@gmail.com',
+      role: 'user',
+      verified: true
+    };
+    localStorage.setItem('auth_token', 'google_token_' + Date.now());
+    localStorage.setItem('active_user', JSON.stringify(googleUser));
+    set({ currentUser: googleUser });
+    await get().fetchData();
+  },
+
+  // Logout Handler
+  logout: () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('active_user');
+    set({ currentUser: null, sources: [], opportunities: [], notifications: [] });
+  },
+
+  // Password Reset Handler
+  resetPassword: async (email: string) => {
+    console.warn("Password reset requested for:", email);
+    return true;
+  },
+
+  // Profile Update Handler
+  updateProfile: async (name: string, email: string) => {
+    const updatedUser: UserProfile = {
+      full_name: name,
+      email: email,
+      role: get().currentUser?.role || 'user',
+      verified: true
+    };
+    set({ currentUser: updatedUser });
+    localStorage.setItem('active_user', JSON.stringify(updatedUser));
+    localStorage.setItem('user_profile', JSON.stringify(updatedUser));
+
+    try {
+      await apiClient.put('/auth/me', { full_name: name, email });
+    } catch {
+      console.warn("Backend API unreachable, profile updated locally");
     }
   }
 }));

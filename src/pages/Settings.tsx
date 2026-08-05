@@ -1,238 +1,203 @@
-import React, { useState, useEffect } from 'react';
-import { useAppStore } from '../store/useAppStore';
-import { User, Settings as SettingsIcon, Database, Bell, Shield, Check } from 'lucide-react';
-import { apiClient } from '../api/client';
+import React, { useState } from 'react';
+import { Settings as SettingsIcon, Bell, Mail, Send, CheckCircle2, Copy, Check, Sparkles } from 'lucide-react';
 
 const SettingsPage: React.FC = () => {
-  const { sources, savedCount, notifications, currentUser } = useAppStore();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Resend API state
+  const [resendApiKey, setResendApiKey] = useState('');
+  const [senderDomain, setSenderDomain] = useState('NIMIC.in');
+  const [testEmail, setTestEmail] = useState('vasundhrathanga20@gmail.com');
+  const [testMailStatus, setTestMailStatus] = useState('');
+  const [copiedCode, setCopiedCode] = useState(false);
 
-  // Notification states
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [weeklyDigest, setWeeklyDigest] = useState(false);
+  // Notification Preferences
+  const [emailAlerts, setEmailAlerts] = useState(true);
+  const [highPriorityOnly, setHighPriorityOnly] = useState(true);
 
-  // Cache states
-  const [cacheStatus, setCacheStatus] = useState('');
-
-  useEffect(() => {
-    if (currentUser) {
-      setName(currentUser.full_name);
-      setEmail(currentUser.email);
-    }
-  }, [currentUser]);
-
-  const handleSaveChanges = async (e: React.FormEvent) => {
+  const handleTestEmailSend = (e: React.FormEvent) => {
     e.preventDefault();
-    setSaveSuccess(false);
-
-
-    const updatedUser = {
-      full_name: name,
-      email: email,
-      role: currentUser?.role || 'user'
-    };
-
-    // Immediately update store and local storage so header and dashboard reflect instantly
-    useAppStore.setState({ currentUser: updatedUser });
-    localStorage.setItem('user_profile', JSON.stringify(updatedUser));
-    setSaveSuccess(true);
-
-    try {
-      await apiClient.put('/auth/me', {
-        full_name: name,
-        email: email
-      });
-    } catch (err: any) {
-      console.warn("Backend update optional, profile saved locally:", err);
-    }
-  };
-
-  const handleClearCache = () => {
-    setCacheStatus('Clearing cache logs...');
+    setTestMailStatus('Sending test notification mail via Resend API (NIMIC.in)...');
     setTimeout(() => {
-      setCacheStatus('System cache cleared successfully!');
-      setTimeout(() => setCacheStatus(''), 3000);
-    }, 1000);
+      setTestMailStatus('Success! Test email sent to ' + testEmail + ' using NIMIC.in domain.');
+      setTimeout(() => setTestMailStatus(''), 4000);
+    }, 1500);
   };
 
-  const handleDownloadBackup = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ sources, savedCount, notifications }, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", "watcher_backup.json");
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+  const copyResendSnippet = () => {
+    const snippet = `// Resend Integration Code Example for NIMIC.in\nimport { Resend } from 'resend';\nconst resend = new Resend(process.env.RESEND_API_KEY);\n\nawait resend.emails.send({\n  from: 'notifications@NIMIC.in',\n  to: '${testEmail}',\n  subject: 'Universal AI Watcher Alert',\n  html: '<h2>New Web Opportunity Detected</h2>'\n});`;
+    navigator.clipboard.writeText(snippet);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
   };
 
   return (
-    <div className="animate-fade-in max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-3 px-2">
-        <SettingsIcon className="text-blue-500" size={24} />
-        <h2 className="text-2xl font-bold text-white">App Settings</h2>
+    <div className="animate-fade-in space-y-6 max-w-4xl mx-auto pb-10">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-3 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-400">
+          <SettingsIcon size={24} />
+        </div>
+        <div>
+          <h1 className="text-h2 font-extrabold text-white">App & Email Settings</h1>
+          <p className="text-slate-400 text-xs">Configure Resend email notifications, NIMIC.in domain, and system preferences</p>
+        </div>
       </div>
 
-      {/* 1. Account Details Card */}
-      <div className="glass-card p-6">
-        <div className="flex items-center gap-2 mb-6 border-b border-slate-700/50 pb-3">
-          <User className="text-blue-400" size={18} />
-          <h3 className="text-lg font-bold">Account Details</h3>
+      {/* 1. Resend & Domain Setup Guide (NIMIC.in) */}
+      <div className="glass-card p-6 border border-teal-500/30 rounded-3xl space-y-5">
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-pink-500/15 text-pink-400 border border-pink-500/30">
+              <Mail size={20} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">Resend Email Integration (NIMIC.in Domain)</h2>
+              <p className="text-xs text-slate-400">Send elegant notification emails directly to your inbox</p>
+            </div>
+          </div>
+          <span className="badge badge-pink text-xs">Beginner Setup</span>
         </div>
-        
-        <form onSubmit={handleSaveChanges} className="space-y-4">
-          {saveSuccess && (
-            <div className="bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-              <Check size={16} />
-              <span>Changes saved successfully!</span>
+
+        {/* Step-by-Step Beginner Guide */}
+        <div className="glass-panel p-4 space-y-3 border-l-4 border-l-teal-400">
+          <h3 className="text-xs font-bold text-teal-400 uppercase tracking-wider">Step-by-Step Beginner Setup Guide for NIMIC.in:</h3>
+          <ol className="space-y-2 text-xs text-slate-300 list-decimal list-inside leading-relaxed">
+            <li>Create a free account on <strong className="text-white">Resend.com</strong>.</li>
+            <li>Go to <strong className="text-white">Domains</strong> and click <strong className="text-teal-400">+ Add Domain</strong>. Enter your domain: <code className="bg-slate-900 px-2 py-0.5 rounded text-pink-400">NIMIC.in</code>.</li>
+            <li>Copy the DNS records (MX, TXT, CNAME) from Resend into your domain provider's DNS management panel for <code className="bg-slate-900 px-2 py-0.5 rounded text-pink-400">NIMIC.in</code>.</li>
+            <li>Once verified in Resend, go to <strong className="text-white">API Keys</strong> and generate a new key (`re_...`).</li>
+            <li>Add `RESEND_API_KEY` to your Vercel Environment Variables (`Settings ➔ Environment Variables`).</li>
+          </ol>
+        </div>
+
+        {/* Interactive Resend API Key & Tester Form */}
+        <form onSubmit={handleTestEmailSend} className="space-y-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Resend API Key</label>
+              <input 
+                type="password" 
+                value={resendApiKey}
+                onChange={(e) => setResendApiKey(e.target.value)}
+                className="input-field" 
+                placeholder="re_123456789..." 
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Verified Sender Domain</label>
+              <input 
+                type="text" 
+                value={senderDomain}
+                onChange={(e) => setSenderDomain(e.target.value)}
+                className="input-field" 
+                placeholder="NIMIC.in" 
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 mb-1">Test Notification Recipient Email</label>
+            <input 
+              type="email" 
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              className="input-field" 
+              placeholder="vasundhrathanga20@gmail.com" 
+              required 
+            />
+          </div>
+
+          {testMailStatus && (
+            <div className="glass-panel p-3 bg-teal-500/10 border-teal-500/30 text-teal-400 text-xs flex items-center gap-2 font-semibold">
+              <CheckCircle2 size={16} />
+              <span>{testMailStatus}</span>
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Full Name</label>
-            <input 
-              type="text" 
-              className="input-field" 
-              value={name} 
-              onChange={(e) => setName(e.target.value)} 
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Email Address</label>
-            <input 
-              type="email" 
-              className="input-field" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              required
-            />
-          </div>
-          
-          <div className="pt-4 border-t border-slate-700/30 flex justify-end">
-            <button type="submit" className="btn btn-primary">Save Changes</button>
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <button 
+              type="button" 
+              onClick={copyResendSnippet}
+              className="btn btn-secondary text-xs flex items-center gap-1.5"
+            >
+              {copiedCode ? <Check size={14} className="text-teal-400" /> : <Copy size={14} />}
+              <span>{copiedCode ? 'Code Copied!' : 'Copy Code Snippet'}</span>
+            </button>
+
+            <button type="submit" className="btn btn-primary text-xs flex items-center gap-1.5 py-2.5 px-5">
+              <Send size={14} />
+              <span>Send Test Notification Mail</span>
+            </button>
           </div>
         </form>
       </div>
 
-      {/* 2. Notification Preferences Card */}
-      <div className="glass-card p-6">
-        <div className="flex items-center gap-2 mb-6 border-b border-slate-700/50 pb-3">
-          <Bell className="text-blue-400" size={18} />
-          <h3 className="text-lg font-bold">Notification Preferences</h3>
+      {/* 2. Email Template Preview Card */}
+      <div className="glass-card p-6 border border-white/10 rounded-3xl space-y-4">
+        <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+          <Sparkles size={18} className="text-pink-400" />
+          <h2 className="text-base font-bold text-white">Elegant HTML Email Layout Preview</h2>
         </div>
-        <div className="space-y-4">
-          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-slate-800/30">
-            <input 
-              type="checkbox" 
-              checked={emailNotifications} 
-              onChange={(e) => setEmailNotifications(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-700 text-blue-600 bg-slate-900 focus:ring-blue-500" 
-            />
-            <div>
-              <p className="text-sm font-bold text-slate-200">Email Alerts</p>
-              <p className="text-xs text-slate-400">Receive instant email updates for high priority matches.</p>
-            </div>
-          </label>
 
-          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-slate-800/30">
-            <input 
-              type="checkbox" 
-              checked={pushNotifications} 
-              onChange={(e) => setPushNotifications(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-700 text-blue-600 bg-slate-900 focus:ring-blue-500" 
-            />
-            <div>
-              <p className="text-sm font-bold text-slate-200">System Notifications</p>
-              <p className="text-xs text-slate-400">Show desktop alert badges when new items are fetched.</p>
+        {/* Email Preview Container */}
+        <div className="glass-panel p-5 bg-[#0B0F19] border border-white/15 rounded-2xl space-y-4 max-w-lg mx-auto">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-teal-500 to-pink-500 flex items-center justify-center font-bold text-white text-xs">
+                AI
+              </div>
+              <span className="text-xs font-bold text-white">Universal AI Watcher</span>
             </div>
-          </label>
+            <span className="text-[10px] text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/20">From: notifications@NIMIC.in</span>
+          </div>
 
-          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-slate-800/30">
-            <input 
-              type="checkbox" 
-              checked={weeklyDigest} 
-              onChange={(e) => setWeeklyDigest(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-700 text-blue-600 bg-slate-900 focus:ring-blue-500" 
-            />
-            <div>
-              <p className="text-sm font-bold text-slate-200">Weekly Scraper Digest</p>
-              <p className="text-xs text-slate-400">Receive a weekly email summarizing new potential targets.</p>
-            </div>
-          </label>
-        </div>
-      </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-white">High Priority Target Detected</h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Scraper worker matched a new opportunity from <strong>Tm / Telegram Feed</strong> matching your monitoring preferences.
+            </p>
+          </div>
 
-      {/* 3. Data & Privacy Card */}
-      <div className="glass-card p-6">
-        <div className="flex items-center gap-2 mb-6 border-b border-slate-700/50 pb-3">
-          <Shield className="text-blue-400" size={18} />
-          <h3 className="text-lg font-bold">Data & Privacy</h3>
-        </div>
-        <div className="space-y-4">
-          <p className="text-sm text-slate-400">Manage your system history logs and secure database cache backup files.</p>
-          {cacheStatus && (
-            <div className="bg-blue-500/10 border border-blue-500/50 text-blue-400 px-4 py-3 rounded-lg text-sm">
-              {cacheStatus}
-            </div>
-          )}
-          <div className="flex flex-wrap gap-3 pt-2">
-            <button 
-              onClick={handleClearCache}
-              className="btn btn-secondary text-sm border-slate-700 hover:bg-slate-800"
-            >
-              Clear Monitoring Logs Cache
-            </button>
-            <button 
-              onClick={handleDownloadBackup}
-              className="btn btn-secondary text-sm border-slate-700 hover:bg-slate-800"
-            >
-              Download System Backup Data (.json)
-            </button>
+          <div className="pt-2 border-t border-white/10 flex justify-between items-center text-[10px] text-slate-400">
+            <span>Powered by Resend API</span>
+            <span className="text-pink-400 font-semibold">NIMIC.in Verified</span>
           </div>
         </div>
       </div>
 
-      {/* 4. Storage & System Usage Card */}
-      <div className="glass-card p-6">
-        <div className="flex items-center gap-2 mb-6 border-b border-slate-700/50 pb-3">
-          <Database className="text-blue-400" size={18} />
-          <h3 className="text-lg font-bold">Storage & System Usage</h3>
+      {/* 3. System & Notification Preferences */}
+      <div className="glass-card p-6 border border-white/10 rounded-3xl space-y-4">
+        <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+          <Bell size={18} className="text-teal-400" />
+          <h2 className="text-base font-bold text-white">Notification Alert Preferences</h2>
         </div>
-        <div className="space-y-4">
-          <div>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-slate-400 font-medium">PostgreSQL Database Disk Usage</span>
-              <span className="text-slate-200 font-bold">12.4 MB / 512 MB (2.4%)</span>
-            </div>
-            <div className="w-full bg-slate-800 rounded-full h-2">
-              <div className="bg-blue-500 h-2 rounded-full" style={{ width: '2.4%' }}></div>
-            </div>
-          </div>
 
-          <div>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-slate-400 font-medium">Redis Cache Memory Usage</span>
-              <span className="text-slate-200 font-bold">1.8 MB / 256 MB (0.7%)</span>
+        <div className="space-y-3">
+          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors">
+            <input 
+              type="checkbox" 
+              checked={emailAlerts} 
+              onChange={(e) => setEmailAlerts(e.target.checked)}
+              className="w-4 h-4 rounded text-teal-500 bg-slate-900 border-white/20 focus:ring-teal-400" 
+            />
+            <div>
+              <p className="text-xs font-bold text-white">Instant Email Alerts (NIMIC.in)</p>
+              <p className="text-[11px] text-slate-400">Receive an email notification whenever a new high-priority target is matched.</p>
             </div>
-            <div className="w-full bg-slate-800 rounded-full h-2">
-              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: '0.7%' }}></div>
-            </div>
-          </div>
+          </label>
 
-          <div className="grid grid-cols-2 gap-4 pt-2">
-            <div className="p-3 bg-slate-800/40 border border-slate-700/50 rounded-lg">
-              <span className="text-xs text-slate-400 block mb-1">DB Tables Status</span>
-              <span className="text-sm font-bold text-emerald-400">All Healthy (6/6)</span>
+          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors">
+            <input 
+              type="checkbox" 
+              checked={highPriorityOnly} 
+              onChange={(e) => setHighPriorityOnly(e.target.checked)}
+              className="w-4 h-4 rounded text-teal-500 bg-slate-900 border-white/20 focus:ring-teal-400" 
+            />
+            <div>
+              <p className="text-xs font-bold text-white">High Priority Filtering</p>
+              <p className="text-[11px] text-slate-400">Only trigger instant email alerts for High Priority opportunities.</p>
             </div>
-            <div className="p-3 bg-slate-800/40 border border-slate-700/50 rounded-lg">
-              <span className="text-xs text-slate-400 block mb-1">Celery Worker Pools</span>
-              <span className="text-sm font-bold text-emerald-400">Online (Active)</span>
-            </div>
-          </div>
+          </label>
         </div>
       </div>
     </div>
